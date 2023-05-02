@@ -1,4 +1,4 @@
 #!/bin/bash
 
-rsync -a --exclude "node_modules" . root@node.pymnts.com:/home/metrics/
+rsync -a --exclude "node_modules" . root@rt.pymnts.com:/home/metrics/
 
