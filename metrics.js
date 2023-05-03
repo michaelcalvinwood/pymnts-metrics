@@ -12,8 +12,6 @@ const express = require('express');
 const https = require('https');
 const cors = require('cors');
 
-
-
 const { REDIS_KEY } = process.env;
 
 const redisClient = redis.createClient({
@@ -27,8 +25,7 @@ redisClient.on('error', err => console.log('Redis redisClient Error', err));
 let redisConnected = false;
 
 const reconcile = {};
-
-
+const toRemove = [];
 
 const sleep = async (seconds) => await new Promise(r => setTimeout(r, seconds * 1000));
 
@@ -60,7 +57,9 @@ const connectToRedis = async () => {
 
 const maxDwellTime = 5;
 
-const processEntries = async () => {
+// process the recorded visits
+
+(async () => {
     let visit;
 
     while (1) {
@@ -81,15 +80,28 @@ const processEntries = async () => {
         }
         await sleep(1);
     }
+})();
 
+// process removal requests
 
+(async () => {
+    while (1) {
+
+        if (toRemove.length && currentTime - toRemove[0].time > 2) {
+            const removal = toRemove.shift();
+            handleRemoval(removal);
+        } else await sleep(.5);
+    }
+})()
+
+function handleRemoval (removal) {
+    console.log('remove', removal);
 }
-processEntries();
 
 const processVisitor = async visitorStr => {
     const visitor = JSON.parse(visitorStr);
 
-    const userAgent = visitor.userAgent.toLowerCase();
+    const userAgent = visitor.userAgent ? visitor.userAgent.toLowerCase() : '';
 
     if (!userAgent) return ;
 
@@ -124,9 +136,30 @@ const doStuff = async () => {
 
 doStuff();
 
+const doNotReport = (req, res) => {
+    return new Promise(async (resolve, reject) => {
+        const { path } = req.body;
+
+        if (!path) {
+            res.status(400).json('bad request');
+            return resolve('error 400: bad request');
+        }
+        
+        console.log('Do not report ', path);
+    
+
+        resolve('ok');
+        res.status(200).json('ok');
+    })
+
+    
+}
+
 app.get('/', (req, res) => {
     res.send('Hello, World!');
 });
+
+app.post('/dnr', (req, res) => doNotReport(req, res))
 
 const httpsServer = https.createServer({
     key: fs.readFileSync(privateKeyPath),
