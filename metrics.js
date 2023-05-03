@@ -64,6 +64,19 @@ const connectToRedis = async () => {
 
 const maxDwellTime = 60;
 
+const pathnameToTitle = pathname => {
+    if (!pathname) return 'home';
+    if (pathname === '/') return 'home';
+    
+    let title = pathname.substring(0, pathname.length-1);
+
+    const loc = title.lastIndexOf('/');
+
+    if (loc === -1) return title;
+
+    return title.substring(loc + 1);
+}
+
 const reportToUA = (pathname, userId, hostname = 'pymnts.com') => {
     console.log('reportToUA', pathname, userId, hostname);
     return new Promise((resolve, reject) => {
@@ -78,7 +91,7 @@ const reportToUA = (pathname, userId, hostname = 'pymnts.com') => {
             cid: userId,
             dh: hostname,
             dp: pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`,
-            // dt: title.replaceAll(' ', '-'),
+            dt: pathnameToTitle(pathname),
             // dr: referrer,
             // geoid: getGoogleCode(city, country),
             // ua: userAgent
