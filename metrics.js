@@ -77,7 +77,60 @@ const pathnameToTitle = pathname => {
     return title.substring(loc + 1);
 }
 
-const reportToUA = (pathname, userId, hostname = 'pymnts.com') => {
+const reportToGA4 = (pathname, userId, timeOnPage, hostname = 'www.pymnts.com') => {
+    const g4Id = hostname === 'gamma.pymnts.com' ? 'G-NY60TDWHJ9' : 'G-3WHRCQ5780';
+    const apiSecret = hostname === 'gamma.pymnts.com' ? 'LSPWrwHwTyKhghOCL2PqRA' : 'dlnjCX6cQmSqk73YzmIXsg';
+
+    params = {
+        api_secret: apiSecret,
+        measurement_id: g4Id,
+        uc: 'US'
+    }
+
+    let data = {
+        client_id: 'pymnts_rt_proxy',
+        user_id: userId,
+        events: [
+            {
+                name: 'page_view',
+                params: {
+                    engagement_time_msec: timeOnPage < 15000 ? 15000 : timeOnPage,
+                    session_id: uuidv4(),
+                    page_location: `https://${hostname}${pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`}`,
+                    page_path: pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`,
+                    page_title: pathnameToTitle(pathname),
+                    // page_referrer: referrer
+                    
+                }
+            },
+            {
+                name: 'pymnts_dnr_proxy',
+                params: {
+                    blocked_visitor: 1,
+                    pathname
+                }
+            }
+        ]
+    }
+
+    request = {
+        url: "https://www.google-analytics.com/mp/collect",
+        method: "post",
+        params,
+        data
+    }
+
+    console.log("G4 Request: ", JSON.stringify(request,null, 4));
+
+    axios(request)
+    .then(response => console.log('GA4 Success!'))
+    .catch(error => console.error('GA4 Error', error));
+
+    console.log(`${timeOnPage} milliseconds spent on https://${hostname}${pathname}`);
+
+}
+
+const reportToUA = (pathname, userId, hostname = 'www.pymnts.com') => {
     console.log('reportToUA', pathname, userId, hostname);
     return new Promise((resolve, reject) => {
         const g3Id = hostname === 'gamma.pymnts.com' ? 'UA-11167465-10' : 'UA-11167465-1';
@@ -133,8 +186,10 @@ const reportToUA = (pathname, userId, hostname = 'pymnts.com') => {
             
             if (dwellTime >= maxDwellTime) {
                 visit = urls.shift();
-                console.log("report to Google", ips[i], visit);
+                const secondsOnPage = urls.length ? Math.abs(urls[0].time - visit.time) : dwellTime;
+                console.log("report to Google", ips[i], secondsOnPage, visit);
                 reportToUA(visit.path, visit.userId, 'gamma.pymnts.com');
+                reportToGA4(visit.path, visit.userId, secondsOnPage * 1000, 'gamma.pymnts.com');
             }
 
             if (!urls.length) delete reconcile[ips[i]];
