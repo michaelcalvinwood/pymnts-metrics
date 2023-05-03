@@ -94,7 +94,7 @@ const reportToGA4 = (pathname, userId, timeOnPage, hostname = 'www.pymnts.com') 
             {
                 name: 'page_view',
                 params: {
-                    engagement_time_msec: timeOnPage < 15000 ? 15000 : timeOnPage,
+                    engagement_time_msec: timeOnPage < 30000 ? 30000 : timeOnPage,
                     session_id: uuidv4(),
                     page_location: `https://${hostname}${pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`}`,
                     page_path: pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`,
@@ -120,13 +120,12 @@ const reportToGA4 = (pathname, userId, timeOnPage, hostname = 'www.pymnts.com') 
         data
     }
 
-    console.log("G4 Request: ", JSON.stringify(request,null, 4));
+    if (debug) console.log("G4 Request: ", JSON.stringify(request,null, 4));
 
     axios(request)
-    .then(response => console.log('GA4 Success!'))
+    .then(response => console.log('GA4 Success!', userId, pathname))
     .catch(error => console.error('GA4 Error', error));
 
-    console.log(`${timeOnPage} milliseconds spent on https://${hostname}${pathname}`);
 
 }
 
@@ -156,10 +155,10 @@ const reportToUA = (pathname, userId, hostname = 'www.pymnts.com') => {
             params
         }
 
-        console.log('request', request);
+        if (debug) console.log('request', request);
         
         axios(request)
-        .then(response => console.log('GA3 Success!'))
+        .then(response => console.log('GA3 Success!', userId, pathname))
         .catch(error => console.error('GA3 Error', error));
 
 
@@ -187,7 +186,6 @@ const reportToUA = (pathname, userId, hostname = 'www.pymnts.com') => {
             if (dwellTime >= maxDwellTime) {
                 visit = urls.shift();
                 const secondsOnPage = urls.length ? Math.abs(urls[0].time - visit.time) : dwellTime;
-                console.log("report to Google", ips[i], secondsOnPage, visit);
                 reportToUA(visit.path, visit.userId, 'gamma.pymnts.com');
                 reportToGA4(visit.path, visit.userId, secondsOnPage * 1000, 'gamma.pymnts.com');
             }
