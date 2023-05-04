@@ -267,6 +267,7 @@ const processVisitor = async visitorStr => {
     const pathname = url.pathname.toLowerCase();
     //console.log(pathname);
 
+    
     if (pathname.startsWith('/.git')) return;
     if (pathname.startsWith('/wp-content')) return;
     if (pathname.startsWith('//')) return;
