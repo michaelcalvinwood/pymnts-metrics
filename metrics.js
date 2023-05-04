@@ -130,7 +130,6 @@ const reportToGA4 = (pathname, userId, timeOnPage, hostname = 'www.pymnts.com') 
 }
 
 const reportToUA = (pathname, userId, hostname = 'www.pymnts.com') => {
-    console.log('reportToUA', pathname, userId, hostname);
     return new Promise((resolve, reject) => {
         const g3Id = hostname === 'gamma.pymnts.com' ? 'UA-11167465-10' : 'UA-11167465-1';
          /*
@@ -224,10 +223,10 @@ function handleRemoval (removal) {
     reconcile[ip].splice(index, 1);
     if (!reconcile[ip].length) delete reconcile[ip];
     
-    if (debug) {
+    // if (debug) {
         console.log('remove', removal.path);
         console.log(reconcile);
-    }
+    // }
 }
 
 const getUserId = cookieStr => {
@@ -270,15 +269,16 @@ const processVisitor = async visitorStr => {
     if (pathname.startsWith('/.git')) return;
     if (pathname.startsWith('/wp-content')) return;
     if (pathname.startsWith('//')) return;
+    if (pathname.endsWith('.php')) return;
 
     let file = path.basename(visitor.path);
 
     if (file === 'favicon.ico') return ;
 
     if (reconcile[visitor.ip] !== undefined) reconcile[visitor.ip].push({path: pathname, time: currentTime, userId})
-    else reconcile[visitor.ip] = [{path: visitor.path, time: currentTime, userId}];
+    else reconcile[visitor.ip] = [{path: pathname, time: currentTime, userId}];
 
-    if (debug) console.log('reconcile', reconcile);
+    console.log('reconcile', reconcile);
 }
 
 const doStuff = async () => {
@@ -298,14 +298,15 @@ doStuff();
 
 const doNotReport = (req, res) => {
     return new Promise(async (resolve, reject) => {
-        const { pathname } = req.body;
+        let { pathname, ip } = req.body;
 
         if (!pathname) {
             res.status(400).json('bad request');
             return resolve('error 400: bad request');
         }
-        const ip = req.socket.remoteAddress;
-        if (debug) console.log('Do not report ', ip, pathname);
+
+        if (!ip) ip = req.socket.remoteAddress;
+        console.log('Do not report ', ip, pathname);
         
         toRemove.push({
             ip,
