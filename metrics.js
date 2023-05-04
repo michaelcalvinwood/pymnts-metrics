@@ -31,6 +31,9 @@ const redisClient = redis.createClient({
 redisClient.on('error', err => console.log('Redis redisClient Error', err));
 let redisConnected = false;
 
+const purgeTime = 15000;
+let bootState = true;
+const bootTime = Date.now();
 const reconcile = {};
 const toRemove = [];
 
@@ -47,6 +50,8 @@ const app = express();
 app.use(express.static('public'));
 app.use(express.json({limit: '500mb'})); 
 app.use(cors());
+
+
 
 const connectToRedis = async () => {
     try {
@@ -267,7 +272,6 @@ const processVisitor = async visitorStr => {
     const pathname = url.pathname.toLowerCase();
     //console.log(pathname);
 
-    
     if (pathname.startsWith('/.git')) return;
     if (pathname.startsWith('/wp-content')) return;
     if (pathname.startsWith('//')) return;
@@ -301,8 +305,19 @@ const doStuff = async () => {
 
     while (true) {
         const visitor = await redisClient.lPop('visitors');
-        if (visitor) await processVisitor(visitor);
-        else {
+        //if (bootState) console.log('purge', visitor);
+
+        if (visitor && !bootState) await processVisitor(visitor);
+        
+        if (!visitor) {
+            if (bootState) {
+                let ts = Date.now();
+                if (ts - bootTime > purgeTime) {
+                    bootState = false;
+                    console.log('BOOT STATE FALSE');
+                }
+            }
+            
             await sleep(2);
         }
 
