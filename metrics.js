@@ -264,12 +264,26 @@ const processVisitor = async visitorStr => {
     const url = new URL(`http://pymnts.com${visitor.path}`);
     //console.log(url);
 
-    const pathname = url.pathname;
+    const pathname = url.pathname.toLowerCase();
+    //console.log(pathname);
 
     if (pathname.startsWith('/.git')) return;
     if (pathname.startsWith('/wp-content')) return;
     if (pathname.startsWith('//')) return;
     if (pathname.endsWith('.php')) return;
+    
+    text = pathname.indexOf('.env');
+    if (text !== -1) return;
+
+    let loc = pathname.lastIndexOf('/');
+    if (loc === -1 || loc !== pathname.length - 1) {
+        loc = pathname.lastIndexOf('.');
+        if (loc !== -1) {
+            const extension = pathname.substring(loc+1);
+
+            if (extension !== 'html') return;
+        }
+    }
 
     let file = path.basename(visitor.path);
 
