@@ -23,7 +23,7 @@ const debug = false;
 
 const redisClient = redis.createClient({
     socket: {
-        host: 'gamma.pymnts.com'
+        host: 'delta.pymnts.com'
     },
     password: REDIS_KEY
 });
@@ -57,7 +57,11 @@ const connectToRedis = async () => {
     try {
         await redisClient.connect();
         redisConnected = true;
-   
+        if (debug) {
+            console.log('redis connected');
+            const test = await redisClient.get('test');
+            console.log('test', test);
+        }
         // await redisClient.set('test', 'gogo');
         // const value = await redisClient.get('test');
         // console.log('value', value);
@@ -102,7 +106,7 @@ const reportToGA4 = (pathname, userId, timeOnPage, hostname = 'www.pymnts.com') 
                     engagement_time_msec: timeOnPage < 30000 ? 30000 : timeOnPage,
                     session_id: uuidv4(),
                     page_location: `https://${hostname}${pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`}`,
-                    page_path: pathname.indexOf('?') === -1 ? `${pathname}?ppp=true` : `${pathname}&ppp=true`,
+                    page_path: pathname,
                     page_title: pathnameToTitle(pathname),
                     // page_referrer: referrer
                     
@@ -190,8 +194,8 @@ const reportToUA = (pathname, userId, hostname = 'www.pymnts.com') => {
             if (dwellTime >= maxDwellTime) {
                 visit = urls.shift();
                 const secondsOnPage = urls.length ? Math.abs(urls[0].time - visit.time) : dwellTime;
-                reportToUA(visit.path, visit.userId, 'gamma.pymnts.com');
-                reportToGA4(visit.path, visit.userId, secondsOnPage * 1000, 'gamma.pymnts.com');
+                //reportToUA(visit.path, visit.userId, 'www.pymnts.com');
+                reportToGA4(visit.path, visit.userId, secondsOnPage * 1000, 'www.pymnts.com');
             }
 
             if (!urls.length) delete reconcile[ips[i]];
@@ -228,10 +232,10 @@ function handleRemoval (removal) {
     reconcile[ip].splice(index, 1);
     if (!reconcile[ip].length) delete reconcile[ip];
     
-    // if (debug) {
+    if (debug) {
         console.log('remove', removal.path);
         console.log(reconcile);
-    // }
+    }
 }
 
 const getUserId = cookieStr => {
@@ -239,10 +243,33 @@ const getUserId = cookieStr => {
 
     const cookies = cookie.parse(cookieStr);
 
+    if (cookies['pymnts-device-auth']) {
+        console.log('pymnts-device-auth: ', cookies['pymnts-device-auth']);
+        return cookies['pymnts-device-auth'];
+    }
     if (cookies['pymnts-browser-id']) return cookies['pymnts-browser-id'];
     if (cookies['pymnts-device-identity']) return cookies['pymnts-device-identity'];
     
     return uuidv4();
+}
+
+const recordVisit = async (path, pymntsDeviceAuth) => {
+    return new Promise((resolve, reject) => {
+        const request = {
+            url: 'https://tracking.pymnts.com:6200/pageVisit/',
+            method: 'post',
+            data: {
+                path,
+                pymntsDeviceAuth
+            }
+        }
+        
+        axios(request)
+        .then(data => resolve(data))
+        .catch(err => resolve('err'));
+         
+    })
+    
 }
 
 const processVisitor = async visitorStr => {
@@ -274,6 +301,7 @@ const processVisitor = async visitorStr => {
 
     if (pathname.startsWith('/.git')) return;
     if (pathname.startsWith('/wp-content')) return;
+    if (pathname.startsWith('/wp-json')) return;
     if (pathname.startsWith('//')) return;
     if (pathname.endsWith('.php')) return;
     
@@ -294,10 +322,12 @@ const processVisitor = async visitorStr => {
 
     if (file === 'favicon.ico') return ;
 
+    //recordVisit(pathname, userId);
+
     if (reconcile[visitor.ip] !== undefined) reconcile[visitor.ip].push({path: pathname, time: currentTime, userId})
     else reconcile[visitor.ip] = [{path: pathname, time: currentTime, userId}];
 
-    console.log('reconcile', reconcile);
+    if (debug) console.log('reconcile', reconcile);
 }
 
 const doStuff = async () => {
@@ -324,7 +354,7 @@ const doStuff = async () => {
     }
 }
 
-doStuff();
+doStuff(); // This launches the main process
 
 const doNotReport = (req, res) => {
     return new Promise(async (resolve, reject) => {
@@ -336,7 +366,7 @@ const doNotReport = (req, res) => {
         }
 
         if (!ip) ip = req.socket.remoteAddress;
-        console.log('Do not report ', ip, pathname);
+        if (debug) console.log('Do not report ', ip, pathname);
         
         toRemove.push({
             ip,
